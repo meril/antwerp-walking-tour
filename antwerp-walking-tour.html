@@ -1,0 +1,1218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Antwerp Walking Tour - Art, History & Architecture</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Source+Sans+3:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --parchment: #f4f1ea;
+            --ink: #2c2416;
+            --gold: #b8860b;
+            --gold-light: #d4a84b;
+            --burgundy: #722f37;
+            --stone: #8b8378;
+            --cream: #faf8f3;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Source Sans 3', sans-serif;
+            background: var(--parchment);
+            color: var(--ink);
+            line-height: 1.6;
+        }
+
+        /* Header */
+        header {
+            background: linear-gradient(135deg, var(--ink) 0%, #3d3326 100%);
+            color: var(--parchment);
+            padding: 2rem;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M30 0L30 60M0 30L60 30' stroke='%23b8860b' stroke-width='0.5' opacity='0.1'/%3E%3C/svg%3E");
+            opacity: 0.3;
+        }
+
+        header h1 {
+            font-family: 'Playfair Display', serif;
+            font-size: 2.5rem;
+            font-weight: 700;
+            letter-spacing: 0.05em;
+            margin-bottom: 0.5rem;
+            position: relative;
+        }
+
+        header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+            font-weight: 300;
+            position: relative;
+        }
+
+        .date-badge {
+            display: inline-block;
+            background: var(--gold);
+            color: var(--ink);
+            padding: 0.3rem 1rem;
+            font-size: 0.85rem;
+            font-weight: 500;
+            margin-top: 1rem;
+            position: relative;
+        }
+
+        /* Main Layout */
+        .container {
+            display: grid;
+            grid-template-columns: 1fr 400px;
+            min-height: calc(100vh - 150px);
+        }
+
+        @media (max-width: 900px) {
+            .container {
+                grid-template-columns: 1fr;
+                grid-template-rows: 40vh auto;
+            }
+
+            header h1 {
+                font-size: 1.75rem;
+            }
+
+            header p {
+                font-size: 0.95rem;
+            }
+
+            header {
+                padding: 1.25rem 1rem;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .container {
+                grid-template-rows: 35vh auto;
+            }
+
+            header h1 {
+                font-size: 1.4rem;
+            }
+
+            header p {
+                font-size: 0.85rem;
+            }
+
+            .date-badge {
+                font-size: 0.75rem;
+                padding: 0.25rem 0.75rem;
+            }
+
+            .sidebar-header h2 {
+                font-size: 1.1rem;
+            }
+
+            .route-info {
+                flex-direction: column;
+                gap: 0.5rem;
+                padding: 0.75rem 1rem;
+            }
+
+            .route-section h3 {
+                font-size: 0.9rem;
+            }
+        }
+
+        /* Map */
+        #map {
+            width: 100%;
+            height: 100%;
+            min-height: 500px;
+        }
+
+        .leaflet-popup-content-wrapper {
+            border-radius: 0;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+        }
+
+        .leaflet-popup-content {
+            margin: 0;
+            font-family: 'Source Sans 3', sans-serif;
+        }
+
+        .popup-title {
+            font-family: 'Playfair Display', serif;
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--ink);
+            padding: 0.75rem 1rem;
+            background: var(--cream);
+            border-bottom: 2px solid var(--gold);
+        }
+
+        .popup-section {
+            font-size: 0.85rem;
+            padding: 0.5rem 1rem;
+            color: var(--ink);
+        }
+
+        /* Sidebar */
+        .sidebar {
+            background: var(--cream);
+            border-left: 1px solid rgba(0,0,0,0.1);
+            overflow-y: auto;
+            max-height: calc(100vh - 150px);
+        }
+
+        @media (max-width: 900px) {
+            .sidebar {
+                max-height: none;
+                border-left: none;
+                border-top: 1px solid rgba(0,0,0,0.1);
+            }
+        }
+
+        .sidebar-header {
+            padding: 1.5rem;
+            background: var(--parchment);
+            border-bottom: 1px solid rgba(0,0,0,0.1);
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        .sidebar-header h2 {
+            font-family: 'Playfair Display', serif;
+            font-size: 1.3rem;
+            color: var(--ink);
+            margin-bottom: 0.25rem;
+        }
+
+        .sidebar-header p {
+            font-size: 0.9rem;
+            color: var(--stone);
+        }
+
+        .route-section {
+            padding: 1rem 1.5rem;
+            border-bottom: 1px solid rgba(0,0,0,0.08);
+        }
+
+        .route-section h3 {
+            font-family: 'Playfair Display', serif;
+            font-size: 1rem;
+            color: var(--burgundy);
+            margin-bottom: 0.75rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .route-section h3::before {
+            content: '';
+            width: 20px;
+            height: 2px;
+            background: var(--gold);
+        }
+
+        /* Stop Cards */
+        .stop-card {
+            background: white;
+            margin-bottom: 0.75rem;
+            border: 1px solid rgba(0,0,0,0.08);
+            cursor: pointer;
+            transition: all 0.2s ease;
+            position: relative;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .stop-card:hover {
+            box-shadow: 0 2px 12px rgba(0,0,0,0.1);
+            border-color: var(--gold);
+        }
+
+        .stop-card:active {
+            background: var(--cream);
+        }
+
+        .stop-card.active {
+            border-color: var(--gold);
+            box-shadow: 0 2px 12px rgba(184, 134, 11, 0.2);
+        }
+
+        .stop-header {
+            display: flex;
+            align-items: flex-start;
+            padding: 1rem;
+            gap: 0.75rem;
+            min-height: 56px; /* Touch-friendly minimum height */
+        }
+
+        .stop-number {
+            width: 28px;
+            height: 28px;
+            background: var(--ink);
+            color: var(--parchment);
+            font-family: 'Playfair Display', serif;
+            font-size: 0.9rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .stop-card.active .stop-number {
+            background: var(--gold);
+            color: var(--ink);
+        }
+
+        .stop-title {
+            font-family: 'Playfair Display', serif;
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--ink);
+            line-height: 1.3;
+        }
+
+        .stop-subtitle {
+            font-size: 0.8rem;
+            color: var(--stone);
+            margin-top: 0.2rem;
+        }
+
+        .stop-details {
+            display: none;
+            padding: 0 1rem 1rem 1rem;
+            border-top: 1px solid rgba(0,0,0,0.05);
+            margin-top: 0;
+        }
+
+        .stop-card.active .stop-details {
+            display: block;
+        }
+
+        .detail-section {
+            margin-top: 1rem;
+        }
+
+        .detail-section h4 {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--burgundy);
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+        }
+
+        .detail-section ul {
+            list-style: none;
+            padding: 0;
+        }
+
+        .detail-section li {
+            font-size: 0.9rem;
+            padding: 0.4rem 0;
+            padding-left: 1rem;
+            position: relative;
+            color: var(--ink);
+            line-height: 1.5;
+        }
+
+        .detail-section li::before {
+            content: '◆';
+            position: absolute;
+            left: 0;
+            color: var(--gold);
+            font-size: 0.5rem;
+            top: 0.6rem;
+        }
+
+        .highlight-box {
+            background: linear-gradient(135deg, rgba(184, 134, 11, 0.08) 0%, rgba(184, 134, 11, 0.03) 100%);
+            border-left: 3px solid var(--gold);
+            padding: 0.75rem 1rem;
+            margin-top: 1rem;
+            font-size: 0.85rem;
+            font-style: italic;
+            color: var(--ink);
+        }
+
+        /* Custom Markers */
+        .custom-marker {
+            background: var(--ink);
+            color: var(--parchment);
+            width: 28px;
+            height: 28px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Playfair Display', serif;
+            font-weight: 600;
+            font-size: 14px;
+            border: 2px solid var(--gold);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+        }
+
+        .custom-marker.active {
+            background: var(--gold);
+            color: var(--ink);
+            transform: scale(1.2);
+        }
+
+        /* Route line styling */
+        .route-info {
+            padding: 1rem 1.5rem;
+            background: rgba(184, 134, 11, 0.08);
+            font-size: 0.85rem;
+            color: var(--ink);
+            display: flex;
+            gap: 1.5rem;
+            flex-wrap: wrap;
+        }
+
+        .route-info span {
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+        }
+
+        .route-info strong {
+            color: var(--burgundy);
+        }
+
+        /* Legend */
+        .legend {
+            padding: 1rem 1.5rem;
+            background: var(--parchment);
+            border-top: 1px solid rgba(0,0,0,0.1);
+            font-size: 0.8rem;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 0.3rem;
+        }
+
+        .legend-color {
+            width: 12px;
+            height: 12px;
+        }
+
+        .legend-color.morning { background: #4a7c59; }
+        .legend-color.late-morning { background: #7c4a5e; }
+        .legend-color.afternoon { background: #4a5e7c; }
+        .legend-color.late-afternoon { background: #7c6a4a; }
+
+        /* Mobile floating button */
+        .scroll-to-map {
+            display: none;
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: var(--ink);
+            color: var(--parchment);
+            border: 2px solid var(--gold);
+            padding: 12px 16px;
+            font-family: 'Source Sans 3', sans-serif;
+            font-size: 0.9rem;
+            font-weight: 500;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            z-index: 1000;
+            transition: all 0.2s ease;
+        }
+
+        .scroll-to-map:active {
+            background: var(--gold);
+            color: var(--ink);
+        }
+
+        @media (max-width: 900px) {
+            .scroll-to-map {
+                display: block;
+            }
+
+            .scroll-to-map.at-top {
+                display: none;
+            }
+        }
+
+        /* Mobile-specific list improvements */
+        @media (max-width: 480px) {
+            .stop-header {
+                padding: 0.875rem;
+            }
+
+            .stop-details {
+                padding: 0 0.875rem 0.875rem 0.875rem;
+            }
+
+            .detail-section li {
+                font-size: 0.85rem;
+                padding: 0.35rem 0;
+                padding-left: 0.875rem;
+            }
+
+            .highlight-box {
+                font-size: 0.8rem;
+                padding: 0.625rem 0.875rem;
+            }
+
+            .route-section {
+                padding: 0.875rem 1rem;
+            }
+        }
+
+        /* Ensure map controls don't overlap on mobile */
+        @media (max-width: 480px) {
+            .leaflet-control-zoom {
+                margin-top: 10px !important;
+                margin-left: 10px !important;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Antwerp Walking Tour</h1>
+        <p>A Journey Through Art, History & Architecture</p>
+        <div class="date-badge">January 1, 2026</div>
+    </header>
+
+    <div class="container">
+        <div id="map"></div>
+        
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h2>Tour Itinerary</h2>
+                <p>12 stops • exterior-focused • ~5km</p>
+            </div>
+
+            <div class="route-info">
+                <span><strong>Distance:</strong> ~5-6 km</span>
+                <span><strong>Duration:</strong> 4-5 hours</span>
+                <span><strong>Terrain:</strong> Flat, paved</span>
+            </div>
+
+            <div class="route-info" style="background: rgba(114, 47, 55, 0.08); border-top: 1px solid rgba(0,0,0,0.05);">
+                <div style="width: 100%;">
+                    <strong style="color: var(--burgundy);">Suggested Breaks:</strong>
+                    <ul style="margin: 0.5rem 0 0 1rem; font-size: 0.85rem;">
+                        <li><strong>Coffee:</strong> Joe & the Juice (Wiegstraat) before starting, or cafes around Groenplaats (Stop 5)</li>
+                        <li><strong>Lunch:</strong> Het Eilandje area (Stop 9) has waterfront restaurants — Felix Pakhuis is a converted warehouse</li>
+                        <li><strong>Rest:</strong> Benches at Het Steen terrace (Stop 8) and Leopold de Waelplaats in Het Zuid (Stop 11)</li>
+                    </ul>
+                    <p style="margin-top: 0.5rem; font-size: 0.8rem; color: var(--stone);"><em>Tip: Consider splitting into Morning (1-6), then Afternoon (7-9) after coffee. Take tram to Het Zuid (10-11). Skip Stop 12 (Centraal) unless you're heading there.</em></p>
+                </div>
+            </div>
+
+            <!-- MORNING SECTION -->
+            <div class="route-section">
+                <h3>Morning: The Historic Core</h3>
+
+                <div class="stop-card" data-stop="1">
+                    <div class="stop-header">
+                        <div class="stop-number">1</div>
+                        <div>
+                            <div class="stop-title">Cathedral of Our Lady</div>
+                            <div class="stop-subtitle">Onze-Lieve-Vrouwekathedraal</div>
+                        </div>
+                    </div>
+                    <div class="stop-details">
+                        <div class="detail-section">
+                            <h4>History</h4>
+                            <ul>
+                                <li>Construction began 1352, completed 1521 — 170 years of building</li>
+                                <li>Became a cathedral (bishop's seat) in 1559 when the Diocese of Antwerp was established</li>
+                                <li>Survived iconoclasm (1566), French Revolutionary looting (1794), and German occupation (1914) — each time losing then recovering treasures</li>
+                                <li>The original plan called for two matching towers; only the north tower was completed due to funding issues and changing architectural tastes</li>
+                            </ul>
+                        </div>
+                        <div class="detail-section">
+                            <h4>Architecture</h4>
+                            <ul>
+                                <li>Brabantine Gothic style — characterized by elaborate tracery and vertical emphasis</li>
+                                <li>North tower reaches 123 meters — tallest church tower in the Low Countries</li>
+                                <li>Seven-aisled nave stretching 118 meters, supported by 125 columns</li>
+                                <li>The tower's "lacework" stonework is remarkably delicate for such massive scale — look for the intricate pinnacles and flying buttresses</li>
+                            </ul>
+                        </div>
+                        <div class="detail-section">
+                            <h4>Art (Interior — visit Jan 2)</h4>
+                            <ul>
+                                <li><em>The Raising of the Cross</em> (1610-11) and <em>The Descent from the Cross</em> (1612-14) — two of Rubens' most dramatic altarpieces</li>
+                                <li>Both paintings demonstrate Rubens' mastery of diagonal composition and theatrical lighting</li>
+                                <li>The Descent was commissioned by the Guild of Arquebusiers; the Raising originally belonged to St. Walburga's Church</li>
+                            </ul>
+                        </div>
+                        <div class="highlight-box">
+                            At the Handschoenmarkt (Glove Market) in front, the Brabo Fountain depicts Antwerp's founding legend: the Roman soldier Silvius Brabo cutting off the giant Antigoon's hand and throwing it in the Scheldt — "hand werpen" (hand throwing) became "Antwerpen."
+                        </div>
+                    </div>
+                </div>
+
+                <div class="stop-card" data-stop="2">
+                    <div class="stop-header">
+                        <div class="stop-number">2</div>
+                        <div>
+                            <div class="stop-title">Vlaeykensgang</div>
+                            <div class="stop-subtitle">Hidden 16th-century alleyway</div>
+                        </div>
+                    </div>
+                    <div class="stop-details">
+                        <div class="detail-section">
+                            <h4>History</h4>
+                            <ul>
+                                <li>Built in 1591 as housing for cobblers and their families</li>
+                                <li>Named after "Vlaeykens" — a common surname or possibly derived from "vlaai" (flat cake)</li>
+                                <li>Remained working-class housing for centuries; nearly demolished in the 20th century before preservation efforts saved it</li>
+                                <li>Now contains small restaurants and galleries, but retains its authentic medieval character</li>
+                            </ul>
+                        </div>
+                        <div class="detail-section">
+                            <h4>Architecture</h4>
+                            <ul>
+                                <li>Narrow passage only 1-2 meters wide in places — typical of medieval urban planning where space was precious</li>
+                                <li>Original cobblestones, some dating to the 16th century</li>
+                                <li>Small interior courtyards created light wells for the surrounding buildings</li>
+                                <li>Ivy-covered walls and intimate scale create a stark contrast with the busy streets outside</li>
+                            </ul>
+                        </div>
+                        <div class="highlight-box">
+                            Enter at Oude Koornmarkt 16 — easy to miss if you don't know to look for it. The passage connects to Pelgrimstraat, emerging near the cathedral.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="stop-card" data-stop="3">
+                    <div class="stop-header">
+                        <div class="stop-number">3</div>
+                        <div>
+                            <div class="stop-title">Grote Markt</div>
+                            <div class="stop-subtitle">Guild houses & City Hall</div>
+                        </div>
+                    </div>
+                    <div class="stop-details">
+                        <div class="detail-section">
+                            <h4>History</h4>
+                            <ul>
+                                <li>Commercial heart of Antwerp since medieval times — this is where the city's wealth was displayed and business conducted</li>
+                                <li>The guild houses represented the economic power of trade associations: coopers, drapers, archers, crossbowmen</li>
+                                <li>In the 16th century, Antwerp was the richest city in Europe, handling 40% of world trade — this square shows that wealth</li>
+                                <li>The Spanish Fury (1576) destroyed much of the city; many buildings were rebuilt afterward</li>
+                            </ul>
+                        </div>
+                        <div class="detail-section">
+                            <h4>Architecture</h4>
+                            <ul>
+                                <li><strong>Stadhuis (City Hall):</strong> Renaissance masterpiece (1561-65) by Cornelis Floris de Vriendt, blending Italian Renaissance with Flemish decoration</li>
+                                <li>The City Hall's center bay features a dramatic break from the horizontal rhythm — look for the coat of arms and figures</li>
+                                <li><strong>Guild houses:</strong> Each competed for attention with gilded statues, elaborate gables, and symbolic imagery representing their trade</li>
+                                <li>Look for the Coopers' House (barrel motifs), the Archers' House, and houses with stepped gables vs. curved gables (showing different periods)</li>
+                            </ul>
+                        </div>
+                        <div class="detail-section">
+                            <h4>Art & Symbolism</h4>
+                            <ul>
+                                <li>The Brabo Fountain (1887) by Jef Lambeaux — more dramatic than the version at Handschoenmarkt, showing Brabo mid-throw</li>
+                                <li>Guild house facades function as architectural "business cards" — each detail communicates the guild's trade, patron saint, and prosperity</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="stop-card" data-stop="4">
+                    <div class="stop-header">
+                        <div class="stop-number">4</div>
+                        <div>
+                            <div class="stop-title">Vleeshuis</div>
+                            <div class="stop-subtitle">Butchers' Hall (1504)</div>
+                        </div>
+                    </div>
+                    <div class="stop-details">
+                        <div class="detail-section">
+                            <h4>History</h4>
+                            <ul>
+                                <li>Built 1501-1504 as the guildhall of the butchers — one of the wealthiest and most powerful guilds</li>
+                                <li>Butchers had a monopoly on meat sales; only they could sell meat, and only here</li>
+                                <li>The building included a great hall for guild meetings, a chapel, and ground-floor meat stalls</li>
+                                <li>Now houses the Vleeshuis Museum of music and dance (closed today but reopening)</li>
+                            </ul>
+                        </div>
+                        <div class="detail-section">
+                            <h4>Architecture</h4>
+                            <ul>
+                                <li>Late Gothic with distinctive alternating layers of red brick and white sandstone — creates the striking "bacon" striped effect</li>
+                                <li>The layered pattern is both decorative and structural — the sandstone bands help distribute weight</li>
+                                <li>Steep stepped gables and corner turrets give it a fortress-like appearance</li>
+                                <li>One of the best-preserved examples of a medieval guild hall in the Low Countries</li>
+                            </ul>
+                        </div>
+                        <div class="highlight-box">
+                            The "bacon stripes" are uniquely Antwerp — you won't see this pattern repeated elsewhere. The building's fortress-like appearance reflected the butchers' wealth and their need to protect valuable meat stores.
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- LATE MORNING SECTION -->
+            <div class="route-section">
+                <h3>Late Morning: The Rubens Quarter</h3>
+
+                <div class="stop-card" data-stop="5">
+                    <div class="stop-header">
+                        <div class="stop-number">5</div>
+                        <div>
+                            <div class="stop-title">Groenplaats</div>
+                            <div class="stop-subtitle">Rubens' original burial site</div>
+                        </div>
+                    </div>
+                    <div class="stop-details">
+                        <div class="detail-section">
+                            <h4>History & Rubens Context</h4>
+                            <ul>
+                                <li>Originally the Cathedral's graveyard — "Groenplaats" means "Green Place," referring to the grass that once covered the graves</li>
+                                <li>Rubens was buried here in 1640; his remains were moved inside the Cathedral in 1755 to the family chapel (behind the apse)</li>
+                                <li>The statue (1840) by Willem Geefs shows Rubens in diplomat's attire — he was both painter and ambassador, negotiating peace between Spain and England</li>
+                                <li>Burials ended in 1784 when Emperor Joseph II banned urban cemeteries — part of Enlightenment-era public health reforms</li>
+                            </ul>
+                        </div>
+                        <div class="detail-section">
+                            <h4>What to Notice</h4>
+                            <ul>
+                                <li>Stand at the statue and look toward the Cathedral tower — this view connects Rubens to his greatest works inside (the altarpieces you'll see on Jan 2)</li>
+                                <li>The statue's pedestal shows allegorical figures representing Painting, Architecture, and Fame</li>
+                                <li>The square's open layout reflects Enlightenment urban planning — replacing the medieval jumble of graves with rational public space</li>
+                            </ul>
+                        </div>
+                        <div class="highlight-box">
+                            Rubens died wealthy and celebrated, unlike many artists of his era. His epitaph calls him "the Apelles of his age" — comparing him to Alexander the Great's court painter, the highest compliment 17th-century art could bestow.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="stop-card" data-stop="6">
+                    <div class="stop-header">
+                        <div class="stop-number">6</div>
+                        <div>
+                            <div class="stop-title">Rubenshuis</div>
+                            <div class="stop-subtitle">Rubens' home & studio (1610-1640)</div>
+                        </div>
+                    </div>
+                    <div class="stop-details">
+                        <div class="detail-section">
+                            <h4>History</h4>
+                            <ul>
+                                <li>Purchased by Rubens in 1610 after returning from 8 years in Italy; he lived here until his death in 1640</li>
+                                <li>Rubens transformed an existing Flemish house into an Italian-style palazzo — designing the renovations himself</li>
+                                <li>This was both home and "painting factory" — Rubens employed numerous assistants including Anthony van Dyck and Jacob Jordaens</li>
+                                <li>After Rubens' death, the house changed hands and was heavily modified; the city acquired it in 1937 and spent decades restoring it</li>
+                            </ul>
+                        </div>
+                        <div class="detail-section">
+                            <h4>Architecture</h4>
+                            <ul>
+                                <li><strong>The Portico:</strong> The ornate Baroque gateway connecting house to studio — one of the few original elements to survive. Designed by Rubens based on Roman triumphal arches</li>
+                                <li>The portico features three arched openings, with sculptures representing Mercury and Minerva (commerce and wisdom)</li>
+                                <li>The garden pavilion at the back was inspired by Italian Renaissance villas</li>
+                                <li>The house shows the transition from Flemish traditional architecture to Italian Baroque influences</li>
+                            </ul>
+                        </div>
+                        <div class="detail-section">
+                            <h4>Art Context</h4>
+                            <ul>
+                                <li>Rubens produced an estimated 1,400 paintings here, with workshop assistance</li>
+                                <li>The studio had large windows (facing north for consistent light) and high ceilings to accommodate massive canvases</li>
+                                <li>Rubens also amassed an important art collection here, which he used for study and as models</li>
+                            </ul>
+                        </div>
+                        <div class="highlight-box">
+                            The historic residence is under renovation until 2030, but the garden and Rubens Experience are accessible (closed Jan 1). The new entrance is at Hopland 13.
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- AFTERNOON SECTION -->
+            <div class="route-section">
+                <h3>Afternoon: River & Port Heritage</h3>
+
+                <div class="stop-card" data-stop="7">
+                    <div class="stop-header">
+                        <div class="stop-number">7</div>
+                        <div>
+                            <div class="stop-title">Sint-Carolus Borromeus</div>
+                            <div class="stop-subtitle">Baroque Jesuit church (1621)</div>
+                        </div>
+                    </div>
+                    <div class="stop-details">
+                        <div class="detail-section">
+                            <h4>History</h4>
+                            <ul>
+                                <li>Built 1615-1621 by the Jesuits as part of the Counter-Reformation — designed to overwhelm and inspire</li>
+                                <li>Rubens was closely involved in the design, particularly the facade and tower</li>
+                                <li>Originally had 39 ceiling paintings by Rubens — all destroyed by lightning fire in 1718</li>
+                                <li>Named after Carlo Borromeo, the Counter-Reformation archbishop of Milan, canonized in 1610</li>
+                            </ul>
+                        </div>
+                        <div class="detail-section">
+                            <h4>Architecture</h4>
+                            <ul>
+                                <li>The facade is considered one of the finest Baroque facades in the Low Countries — theatrical, dynamic, designed to impress</li>
+                                <li>Three-story design with dramatic interplay of columns, pilasters, and broken pediments</li>
+                                <li>The tower combines Baroque and Gothic elements — showing regional adaptation of Italian ideas</li>
+                                <li>The interior uses marble, gilt, and dramatic lighting to create emotional impact — architecture as religious propaganda</li>
+                            </ul>
+                        </div>
+                        <div class="detail-section">
+                            <h4>Art</h4>
+                            <ul>
+                                <li>The Lady Chapel retains two paintings by Rubens that survived the 1718 fire</li>
+                                <li>The church demonstrates how Baroque art and architecture worked together to create immersive religious experiences</li>
+                            </ul>
+                        </div>
+                        <div class="highlight-box">
+                            <strong>Jan 1 Note:</strong> Church only open for Mass (11:30am Artists' Mass, 5pm Parish Mass) — no tourist visits. But Hendrik Conscienceplein, the square in front, is one of the most photogenic spots in Antwerp — the church facade framed by historic buildings.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="stop-card" data-stop="8">
+                    <div class="stop-header">
+                        <div class="stop-number">8</div>
+                        <div>
+                            <div class="stop-title">Het Steen & Scheldt Riverfront</div>
+                            <div class="stop-subtitle">Medieval fortress & the river that built Antwerp</div>
+                        </div>
+                    </div>
+                    <div class="stop-details">
+                        <div class="detail-section">
+                            <h4>Het Steen — The Fortress</h4>
+                            <ul>
+                                <li>The oldest building in Antwerp — parts date to the 10th century, with major rebuilding in the 1520s under Emperor Charles V</li>
+                                <li>Originally a fortress protecting the river crossing; later served as a prison (until 1823)</li>
+                                <li>The name "Steen" simply means "stone" — a reference to its stone construction when most buildings were wood</li>
+                                <li>What survives is the gatehouse of a much larger medieval castle complex</li>
+                                <li>The relief above the entrance (1520) shows Semini, a Scandinavian fertility god — possibly repurposed from a Viking-era stone</li>
+                            </ul>
+                        </div>
+                        <div class="detail-section">
+                            <h4>The Scheldt — Antwerp's Lifeline</h4>
+                            <ul>
+                                <li>The Scheldt River made Antwerp — navigable from the North Sea, it allowed ocean-going ships to reach the city</li>
+                                <li>By the 16th century, Antwerp was the busiest port in the world, handling 40% of world trade: spices, textiles, gems, and art</li>
+                                <li>The river was also Antwerp's vulnerability — the Dutch blockade of the Scheldt (1585-1863) devastated the city's economy for nearly 300 years</li>
+                                <li>Look across to Linkeroever (Left Bank) — the contrast between medieval Steen and modern riverfront captures Antwerp's layered history</li>
+                            </ul>
+                        </div>
+                        <div class="detail-section">
+                            <h4>Folklore</h4>
+                            <ul>
+                                <li>The statue of Lange Wapper (Long Wapper) depicts a shape-shifting giant from Antwerp folklore who terrorized drunkards leaving the waterfront taverns — a 16th-century cautionary tale</li>
+                            </ul>
+                        </div>
+                        <div class="highlight-box">
+                            Stand on the terrace and look north toward the port — you're seeing the continuation of 1,000+ years of river trade. The modern cranes in the distance handle some of Europe's largest cargo volumes.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="stop-card" data-stop="9">
+                    <div class="stop-header">
+                        <div class="stop-number">9</div>
+                        <div>
+                            <div class="stop-title">MAS & Het Eilandje</div>
+                            <div class="stop-subtitle">Museum aan de Stroom & old docks</div>
+                        </div>
+                    </div>
+                    <div class="stop-details">
+                        <div class="detail-section">
+                            <h4>History</h4>
+                            <ul>
+                                <li>Het Eilandje ("Little Island") was Antwerp's 19th-century port district — warehouses, docks, and maritime industry</li>
+                                <li>Declined in the 20th century as port activities moved north; became derelict and largely abandoned</li>
+                                <li>Redeveloped since the 2000s as a mixed-use neighborhood — a model of adaptive reuse</li>
+                                <li>The MAS opened in 2011, designed to tell the story of Antwerp's connection to the world through trade, migration, and cultural exchange</li>
+                            </ul>
+                        </div>
+                        <div class="detail-section">
+                            <h4>Architecture</h4>
+                            <ul>
+                                <li><strong>MAS building:</strong> Designed by Neutelings Riedijk (2011) — 60 meters tall, clad in red Indian sandstone and curved glass</li>
+                                <li>The stacked, rotating volumes evoke shipping containers or hands (the Antwerp symbol)</li>
+                                <li>The facade includes 3,185 cast aluminum hands — referencing the Brabo legend</li>
+                                <li>External escalators zigzag up through glass-enclosed passages with views at each level — the boulevard and rooftop panorama are free</li>
+                            </ul>
+                        </div>
+                        <div class="detail-section">
+                            <h4>Nearby</h4>
+                            <ul>
+                                <li><strong>Red Star Line Museum:</strong> In the former inspection buildings where 2 million emigrants departed for America (1873-1934), including many Jewish refugees</li>
+                                <li><strong>Bonapartedok & Willemdok:</strong> The old dock basins, now surrounded by converted warehouses and modern apartments</li>
+                            </ul>
+                        </div>
+                        <div class="highlight-box">
+                            <strong>Jan 1 Note:</strong> MAS is completely closed on New Year's Day — including rooftop and escalators. Still worth walking around the building exterior to see the architecture and the hand motifs. The surrounding dock area and Red Star Line building exteriors are accessible.
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- LATE AFTERNOON SECTION -->
+            <div class="route-section">
+                <h3>Late Afternoon: Het Zuid</h3>
+                <p style="font-size: 0.85rem; color: var(--stone); margin-bottom: 0.75rem; font-style: italic;">
+                    ~2km from MAS (Stop 9) to KMSKA (Stop 10). Tram 9 or 15 from Napoleonkaai, or taxi.
+                </p>
+
+                <div class="stop-card" data-stop="10">
+                    <div class="stop-header">
+                        <div class="stop-number">10</div>
+                        <div>
+                            <div class="stop-title">KMSKA (Exterior)</div>
+                            <div class="stop-subtitle">Royal Museum of Fine Arts</div>
+                        </div>
+                    </div>
+                    <div class="stop-details">
+                        <div class="detail-section">
+                            <h4>History</h4>
+                            <ul>
+                                <li>Founded 1810 under Napoleon; the current building opened 1890</li>
+                                <li>The collection began with artworks owned by the Antwerp Guild of Saint Luke (active 1382-1773)</li>
+                                <li>Expanded dramatically through the 1840 bequest of former mayor Florent van Ertborn, who collected Early Netherlandish art when it was unfashionable</li>
+                                <li>Closed 2011-2022 for major renovation; reopened with 40% more exhibition space</li>
+                            </ul>
+                        </div>
+                        <div class="detail-section">
+                            <h4>Architecture</h4>
+                            <ul>
+                                <li>Neoclassical design by Jean-Jacques Winders and Frans Van Dijk (1884-1894)</li>
+                                <li>The facade features bronze horse-drawn chariots by Thomas Vinçotte at the roofline</li>
+                                <li>Seven medallion portraits of artists including Jan van Eyck and Rubens</li>
+                                <li>The 2022 renovation by KAAN Architects added a modern wing for contemporary art while preserving the historic galleries</li>
+                            </ul>
+                        </div>
+                        <div class="detail-section">
+                            <h4>Art (Interior — visit Jan 2)</h4>
+                            <ul>
+                                <li><strong>Jan van Eyck:</strong> Saint Barbara (1437) — an unfinished masterpiece showing his technique; Madonna at the Fountain</li>
+                                <li><strong>Rogier van der Weyden:</strong> Seven Sacraments Altarpiece, Portrait of Philip de Croy</li>
+                                <li><strong>Rubens:</strong> Major works including Adoration of the Magi</li>
+                                <li><strong>James Ensor:</strong> The world's largest collection of his work</li>
+                                <li><strong>Current exhibitions:</strong> Magritte retrospective (until Feb 2026), Marthe Donas/Archipenko (until Jan 11)</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="stop-card" data-stop="11">
+                    <div class="stop-header">
+                        <div class="stop-number">11</div>
+                        <div>
+                            <div class="stop-title">Het Zuid Neighborhood</div>
+                            <div class="stop-subtitle">19th-century boulevards & galleries</div>
+                        </div>
+                    </div>
+                    <div class="stop-details">
+                        <div class="detail-section">
+                            <h4>History</h4>
+                            <ul>
+                                <li>Developed in the late 19th century after the demolition of the old Spanish citadel (built 1567 to control the city after rebellions)</li>
+                                <li>Designed as a bourgeois residential quarter with wide boulevards and grand townhouses</li>
+                                <li>The area declined in the mid-20th century, then was rediscovered by artists and gallerists in the 1980s-90s</li>
+                                <li>Now Antwerp's gallery district, with a more bohemian feel than the tourist center</li>
+                            </ul>
+                        </div>
+                        <div class="detail-section">
+                            <h4>Architecture</h4>
+                            <ul>
+                                <li>Leopold de Waelplaats and surrounding streets show eclectic 19th-century styles — Neo-Renaissance, Neo-Gothic, early Art Nouveau</li>
+                                <li>The Gedempte Zuiderdokken (filled-in southern docks) create a long, linear park space</li>
+                                <li>Look for townhouse details: ornate ironwork, carved stone facades, distinctive doorways</li>
+                            </ul>
+                        </div>
+                        <div class="highlight-box">
+                            Good area for dinner — more local and less touristy than Grote Markt. Wander and see what appeals.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="stop-card" data-stop="12">
+                    <div class="stop-header">
+                        <div class="stop-number">12</div>
+                        <div>
+                            <div class="stop-title">Antwerp Centraal Station</div>
+                            <div class="stop-subtitle">The "Railway Cathedral"</div>
+                        </div>
+                    </div>
+                    <div class="stop-details">
+                        <div class="detail-section">
+                            <h4>History</h4>
+                            <ul>
+                                <li>Built 1895-1905 to replace an earlier wooden station, demonstrating Belgium's pride in its railway network (the first in continental Europe)</li>
+                                <li>Designed by Louis Delacenserie (station building) with the iron train hall by Clément Van Bogaert</li>
+                                <li>King Leopold II was closely involved, wanting a statement of Belgian prestige</li>
+                                <li>Often called the "Railway Cathedral" for its monumental, almost religious grandeur</li>
+                            </ul>
+                        </div>
+                        <div class="detail-section">
+                            <h4>Architecture</h4>
+                            <ul>
+                                <li>Eclectic style combining Neo-Baroque, Neo-Renaissance, and Beaux-Arts influences</li>
+                                <li>The main hall features a massive dome (75 meters high) with elaborate stonework, marble, and gilt details</li>
+                                <li>Over 20 types of marble and stone were used in the interior</li>
+                                <li>The iron and glass train hall (185m × 66m) spans the platforms without intermediate supports — an engineering marvel of its time</li>
+                                <li>Recent renovations (1998-2009) added underground levels for high-speed trains while preserving the historic structure</li>
+                            </ul>
+                        </div>
+                        <div class="highlight-box">
+                            Even if you're not taking a train, walk inside to see the main hall. The dramatic interior rivals many cathedrals — fitting for a city that worshiped commerce.
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="legend">
+                <div class="legend-item"><div class="legend-color morning"></div> Morning: Historic Core</div>
+                <div class="legend-item"><div class="legend-color late-morning"></div> Late Morning: Rubens Quarter</div>
+                <div class="legend-item"><div class="legend-color afternoon"></div> Afternoon: River & Port</div>
+                <div class="legend-item"><div class="legend-color late-afternoon"></div> Late Afternoon: Het Zuid</div>
+            </div>
+        </aside>
+    </div>
+
+    <button class="scroll-to-map" id="scrollToMap">↑ Back to Map</button>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        // Tour stops data with coordinates
+        const stops = [
+            {
+                id: 1,
+                name: "Cathedral of Our Lady",
+                lat: 51.2204,
+                lng: 4.4010,
+                section: "morning"
+            },
+            {
+                id: 2,
+                name: "Vlaeykensgang",
+                lat: 51.2210,
+                lng: 4.4000,
+                section: "morning"
+            },
+            {
+                id: 3,
+                name: "Grote Markt",
+                lat: 51.2213,
+                lng: 4.3995,
+                section: "morning"
+            },
+            {
+                id: 4,
+                name: "Vleeshuis",
+                lat: 51.2232,
+                lng: 4.3970,
+                section: "morning"
+            },
+            {
+                id: 5,
+                name: "Groenplaats",
+                lat: 51.2192,
+                lng: 4.4010,
+                section: "late-morning"
+            },
+            {
+                id: 6,
+                name: "Rubenshuis",
+                lat: 51.2153,
+                lng: 4.4095,
+                section: "late-morning"
+            },
+            {
+                id: 7,
+                name: "Sint-Carolus Borromeus",
+                lat: 51.2220,
+                lng: 4.4040,
+                section: "afternoon"
+            },
+            {
+                id: 8,
+                name: "Het Steen & Scheldt",
+                lat: 51.2240,
+                lng: 4.3960,
+                section: "afternoon"
+            },
+            {
+                id: 9,
+                name: "MAS & Het Eilandje",
+                lat: 51.2295,
+                lng: 4.4045,
+                section: "afternoon"
+            },
+            {
+                id: 10,
+                name: "KMSKA",
+                lat: 51.2070,
+                lng: 4.3960,
+                section: "late-afternoon"
+            },
+            {
+                id: 11,
+                name: "Het Zuid",
+                lat: 51.2090,
+                lng: 4.4000,
+                section: "late-afternoon"
+            },
+            {
+                id: 12,
+                name: "Antwerp Centraal",
+                lat: 51.2172,
+                lng: 4.4212,
+                section: "late-afternoon"
+            }
+        ];
+
+        // Section colors
+        const sectionColors = {
+            "morning": "#4a7c59",
+            "late-morning": "#7c4a5e",
+            "afternoon": "#4a5e7c",
+            "late-afternoon": "#7c6a4a"
+        };
+
+        // Initialize map
+        const map = L.map('map').setView([51.2190, 4.4050], 14);
+
+        // Add tile layer (using a more muted style)
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+            subdomains: 'abcd',
+            maxZoom: 19
+        }).addTo(map);
+
+        // Store markers for reference
+        const markers = {};
+
+        // Create custom icon
+        function createIcon(number, section, isActive = false) {
+            return L.divIcon({
+                className: 'custom-marker-wrapper',
+                html: `<div class="custom-marker ${isActive ? 'active' : ''}" style="background: ${isActive ? '#b8860b' : '#2c2416'}; color: ${isActive ? '#2c2416' : '#f4f1ea'};">${number}</div>`,
+                iconSize: [28, 28],
+                iconAnchor: [14, 14]
+            });
+        }
+
+        // Add markers to map
+        stops.forEach(stop => {
+            const marker = L.marker([stop.lat, stop.lng], {
+                icon: createIcon(stop.id, stop.section)
+            }).addTo(map);
+
+            marker.bindPopup(`
+                <div class="popup-title">${stop.id}. ${stop.name}</div>
+                <div class="popup-section">Click the card in the sidebar for details</div>
+            `);
+
+            marker.on('click', () => {
+                activateStop(stop.id);
+            });
+
+            markers[stop.id] = marker;
+        });
+
+        // Draw route lines
+        const routeCoordinates = stops.map(s => [s.lat, s.lng]);
+        
+        // Main route line
+        L.polyline(routeCoordinates, {
+            color: '#b8860b',
+            weight: 3,
+            opacity: 0.6,
+            dashArray: '10, 10'
+        }).addTo(map);
+
+        // Active stop tracking
+        let activeStopId = null;
+
+        function activateStop(stopId) {
+            // Deactivate previous
+            if (activeStopId) {
+                const prevCard = document.querySelector(`.stop-card[data-stop="${activeStopId}"]`);
+                if (prevCard) prevCard.classList.remove('active');
+                
+                const prevStop = stops.find(s => s.id === activeStopId);
+                if (prevStop && markers[activeStopId]) {
+                    markers[activeStopId].setIcon(createIcon(activeStopId, prevStop.section, false));
+                }
+            }
+
+            // Activate new
+            activeStopId = stopId;
+            const card = document.querySelector(`.stop-card[data-stop="${stopId}"]`);
+            if (card) {
+                card.classList.add('active');
+                card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
+
+            const stop = stops.find(s => s.id === stopId);
+            if (stop && markers[stopId]) {
+                markers[stopId].setIcon(createIcon(stopId, stop.section, true));
+                map.panTo([stop.lat, stop.lng], { animate: true });
+            }
+        }
+
+        // Add click handlers to cards
+        document.querySelectorAll('.stop-card').forEach(card => {
+            card.addEventListener('click', () => {
+                const stopId = parseInt(card.dataset.stop);
+                activateStop(stopId);
+            });
+        });
+
+        // Activate first stop by default
+        activateStop(1);
+
+        // Mobile: Scroll to map button
+        const scrollToMapBtn = document.getElementById('scrollToMap');
+
+        function checkScrollPosition() {
+            const mapElement = document.getElementById('map');
+            const rect = mapElement.getBoundingClientRect();
+
+            // If map is mostly visible, hide the button
+            if (rect.bottom > 100) {
+                scrollToMapBtn.classList.add('at-top');
+            } else {
+                scrollToMapBtn.classList.remove('at-top');
+            }
+        }
+
+        scrollToMapBtn.addEventListener('click', () => {
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        });
+
+        window.addEventListener('scroll', checkScrollPosition);
+        checkScrollPosition(); // Initial check
+    </script>
+</body>
+</html>

@@ -1,0 +1,1218 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>安特衛普步行導覽 - 藝術、歷史與建築</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Source+Sans+3:wght@300;400;500;600&family=Noto+Sans+TC:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --parchment: #f4f1ea;
+            --ink: #2c2416;
+            --gold: #b8860b;
+            --gold-light: #d4a84b;
+            --burgundy: #722f37;
+            --stone: #8b8378;
+            --cream: #faf8f3;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Source Sans 3', sans-serif;
+            background: var(--parchment);
+            color: var(--ink);
+            line-height: 1.6;
+        }
+
+        /* Header */
+        header {
+            background: linear-gradient(135deg, var(--ink) 0%, #3d3326 100%);
+            color: var(--parchment);
+            padding: 2rem;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M30 0L30 60M0 30L60 30' stroke='%23b8860b' stroke-width='0.5' opacity='0.1'/%3E%3C/svg%3E");
+            opacity: 0.3;
+        }
+
+        header h1 {
+            font-family: 'Playfair Display', serif;
+            font-size: 2.5rem;
+            font-weight: 700;
+            letter-spacing: 0.05em;
+            margin-bottom: 0.5rem;
+            position: relative;
+        }
+
+        header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+            font-weight: 300;
+            position: relative;
+        }
+
+        .date-badge {
+            display: inline-block;
+            background: var(--gold);
+            color: var(--ink);
+            padding: 0.3rem 1rem;
+            font-size: 0.85rem;
+            font-weight: 500;
+            margin-top: 1rem;
+            position: relative;
+        }
+
+        /* Main Layout */
+        .container {
+            display: grid;
+            grid-template-columns: 1fr 400px;
+            min-height: calc(100vh - 150px);
+        }
+
+        @media (max-width: 900px) {
+            .container {
+                grid-template-columns: 1fr;
+                grid-template-rows: 40vh auto;
+            }
+
+            header h1 {
+                font-size: 1.75rem;
+            }
+
+            header p {
+                font-size: 0.95rem;
+            }
+
+            header {
+                padding: 1.25rem 1rem;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .container {
+                grid-template-rows: 35vh auto;
+            }
+
+            header h1 {
+                font-size: 1.4rem;
+            }
+
+            header p {
+                font-size: 0.85rem;
+            }
+
+            .date-badge {
+                font-size: 0.75rem;
+                padding: 0.25rem 0.75rem;
+            }
+
+            .sidebar-header h2 {
+                font-size: 1.1rem;
+            }
+
+            .route-info {
+                flex-direction: column;
+                gap: 0.5rem;
+                padding: 0.75rem 1rem;
+            }
+
+            .route-section h3 {
+                font-size: 0.9rem;
+            }
+        }
+
+        /* Map */
+        #map {
+            width: 100%;
+            height: 100%;
+            min-height: 500px;
+        }
+
+        .leaflet-popup-content-wrapper {
+            border-radius: 0;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+        }
+
+        .leaflet-popup-content {
+            margin: 0;
+            font-family: 'Source Sans 3', sans-serif;
+        }
+
+        .popup-title {
+            font-family: 'Playfair Display', serif;
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--ink);
+            padding: 0.75rem 1rem;
+            background: var(--cream);
+            border-bottom: 2px solid var(--gold);
+        }
+
+        .popup-section {
+            font-size: 0.85rem;
+            padding: 0.5rem 1rem;
+            color: var(--ink);
+        }
+
+        /* Sidebar */
+        .sidebar {
+            background: var(--cream);
+            border-left: 1px solid rgba(0,0,0,0.1);
+            overflow-y: auto;
+            max-height: calc(100vh - 150px);
+        }
+
+        @media (max-width: 900px) {
+            .sidebar {
+                max-height: none;
+                border-left: none;
+                border-top: 1px solid rgba(0,0,0,0.1);
+            }
+        }
+
+        .sidebar-header {
+            padding: 1.5rem;
+            background: var(--parchment);
+            border-bottom: 1px solid rgba(0,0,0,0.1);
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        .sidebar-header h2 {
+            font-family: 'Playfair Display', serif;
+            font-size: 1.3rem;
+            color: var(--ink);
+            margin-bottom: 0.25rem;
+        }
+
+        .sidebar-header p {
+            font-size: 0.9rem;
+            color: var(--stone);
+        }
+
+        .route-section {
+            padding: 1rem 1.5rem;
+            border-bottom: 1px solid rgba(0,0,0,0.08);
+        }
+
+        .route-section h3 {
+            font-family: 'Playfair Display', serif;
+            font-size: 1rem;
+            color: var(--burgundy);
+            margin-bottom: 0.75rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .route-section h3::before {
+            content: '';
+            width: 20px;
+            height: 2px;
+            background: var(--gold);
+        }
+
+        /* Stop Cards */
+        .stop-card {
+            background: white;
+            margin-bottom: 0.75rem;
+            border: 1px solid rgba(0,0,0,0.08);
+            cursor: pointer;
+            transition: all 0.2s ease;
+            position: relative;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .stop-card:hover {
+            box-shadow: 0 2px 12px rgba(0,0,0,0.1);
+            border-color: var(--gold);
+        }
+
+        .stop-card:active {
+            background: var(--cream);
+        }
+
+        .stop-card.active {
+            border-color: var(--gold);
+            box-shadow: 0 2px 12px rgba(184, 134, 11, 0.2);
+        }
+
+        .stop-header {
+            display: flex;
+            align-items: flex-start;
+            padding: 1rem;
+            gap: 0.75rem;
+            min-height: 56px; /* Touch-friendly minimum height */
+        }
+
+        .stop-number {
+            width: 28px;
+            height: 28px;
+            background: var(--ink);
+            color: var(--parchment);
+            font-family: 'Playfair Display', serif;
+            font-size: 0.9rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .stop-card.active .stop-number {
+            background: var(--gold);
+            color: var(--ink);
+        }
+
+        .stop-title {
+            font-family: 'Playfair Display', serif;
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--ink);
+            line-height: 1.3;
+        }
+
+        .stop-subtitle {
+            font-size: 0.8rem;
+            color: var(--stone);
+            margin-top: 0.2rem;
+        }
+
+        .stop-details {
+            display: none;
+            padding: 0 1rem 1rem 1rem;
+            border-top: 1px solid rgba(0,0,0,0.05);
+            margin-top: 0;
+        }
+
+        .stop-card.active .stop-details {
+            display: block;
+        }
+
+        .detail-section {
+            margin-top: 1rem;
+        }
+
+        .detail-section h4 {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--burgundy);
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+        }
+
+        .detail-section ul {
+            list-style: none;
+            padding: 0;
+        }
+
+        .detail-section li {
+            font-size: 0.9rem;
+            padding: 0.4rem 0;
+            padding-left: 1rem;
+            position: relative;
+            color: var(--ink);
+            line-height: 1.5;
+        }
+
+        .detail-section li::before {
+            content: '◆';
+            position: absolute;
+            left: 0;
+            color: var(--gold);
+            font-size: 0.5rem;
+            top: 0.6rem;
+        }
+
+        .highlight-box {
+            background: linear-gradient(135deg, rgba(184, 134, 11, 0.08) 0%, rgba(184, 134, 11, 0.03) 100%);
+            border-left: 3px solid var(--gold);
+            padding: 0.75rem 1rem;
+            margin-top: 1rem;
+            font-size: 0.85rem;
+            font-style: italic;
+            color: var(--ink);
+        }
+
+        /* Custom Markers */
+        .custom-marker {
+            background: var(--ink);
+            color: var(--parchment);
+            width: 28px;
+            height: 28px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Playfair Display', serif;
+            font-weight: 600;
+            font-size: 14px;
+            border: 2px solid var(--gold);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+        }
+
+        .custom-marker.active {
+            background: var(--gold);
+            color: var(--ink);
+            transform: scale(1.2);
+        }
+
+        /* Route line styling */
+        .route-info {
+            padding: 1rem 1.5rem;
+            background: rgba(184, 134, 11, 0.08);
+            font-size: 0.85rem;
+            color: var(--ink);
+            display: flex;
+            gap: 1.5rem;
+            flex-wrap: wrap;
+        }
+
+        .route-info span {
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+        }
+
+        .route-info strong {
+            color: var(--burgundy);
+        }
+
+        /* Legend */
+        .legend {
+            padding: 1rem 1.5rem;
+            background: var(--parchment);
+            border-top: 1px solid rgba(0,0,0,0.1);
+            font-size: 0.8rem;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 0.3rem;
+        }
+
+        .legend-color {
+            width: 12px;
+            height: 12px;
+        }
+
+        .legend-color.morning { background: #4a7c59; }
+        .legend-color.late-morning { background: #7c4a5e; }
+        .legend-color.afternoon { background: #4a5e7c; }
+        .legend-color.late-afternoon { background: #7c6a4a; }
+
+        /* Mobile floating button */
+        .scroll-to-map {
+            display: none;
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: var(--ink);
+            color: var(--parchment);
+            border: 2px solid var(--gold);
+            padding: 12px 16px;
+            font-family: 'Source Sans 3', sans-serif;
+            font-size: 0.9rem;
+            font-weight: 500;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            z-index: 1000;
+            transition: all 0.2s ease;
+        }
+
+        .scroll-to-map:active {
+            background: var(--gold);
+            color: var(--ink);
+        }
+
+        @media (max-width: 900px) {
+            .scroll-to-map {
+                display: block;
+            }
+
+            .scroll-to-map.at-top {
+                display: none;
+            }
+        }
+
+        /* Mobile-specific list improvements */
+        @media (max-width: 480px) {
+            .stop-header {
+                padding: 0.875rem;
+            }
+
+            .stop-details {
+                padding: 0 0.875rem 0.875rem 0.875rem;
+            }
+
+            .detail-section li {
+                font-size: 0.85rem;
+                padding: 0.35rem 0;
+                padding-left: 0.875rem;
+            }
+
+            .highlight-box {
+                font-size: 0.8rem;
+                padding: 0.625rem 0.875rem;
+            }
+
+            .route-section {
+                padding: 0.875rem 1rem;
+            }
+        }
+
+        /* Ensure map controls don't overlap on mobile */
+        @media (max-width: 480px) {
+            .leaflet-control-zoom {
+                margin-top: 10px !important;
+                margin-left: 10px !important;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>安特衛普步行導覽</h1>
+        <p>藝術、歷史與建築之旅</p>
+        <div class="date-badge">2026年1月1日</div>
+    </header>
+
+    <div class="container">
+        <div id="map"></div>
+        
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h2>導覽行程</h2>
+                <p>12個景點 • 戶外導覽 • 約5公里</p>
+            </div>
+
+            <div class="route-info">
+                <span><strong>距離：</strong>約5-6公里</span>
+                <span><strong>時間：</strong>4-5小時</span>
+                <span><strong>地形：</strong>平坦、鋪設路面</span>
+            </div>
+
+            <div class="route-info" style="background: rgba(114, 47, 55, 0.08); border-top: 1px solid rgba(0,0,0,0.05);">
+                <div style="width: 100%;">
+                    <strong style="color: var(--burgundy);">建議休息點：</strong>
+                    <ul style="margin: 0.5rem 0 0 1rem; font-size: 0.85rem;">
+                        <li><strong>咖啡：</strong>出發前在 Joe & the Juice (Wiegstraat)，或綠地廣場(第5站)附近的咖啡廳</li>
+                        <li><strong>午餐：</strong>小島區(第9站)有河濱餐廳——Felix Pakhuis 是改建的倉庫餐廳</li>
+                        <li><strong>休息：</strong>斯滕城堡平台(第8站)和南區的 Leopold de Waelplaats (第11站)有長椅</li>
+                    </ul>
+                    <p style="margin-top: 0.5rem; font-size: 0.8rem; color: var(--stone);"><em>建議：可以分成上午(1-6站)和下午(7-9站)。搭電車到南區(10-11站)。除非要搭火車，否則可以跳過第12站。</em></p>
+                </div>
+            </div>
+
+            <!-- MORNING SECTION -->
+            <div class="route-section">
+                <h3>上午：歷史核心區</h3>
+
+                <div class="stop-card" data-stop="1">
+                    <div class="stop-header">
+                        <div class="stop-number">1</div>
+                        <div>
+                            <div class="stop-title">聖母大教堂</div>
+                            <div class="stop-subtitle">Onze-Lieve-Vrouwekathedraal</div>
+                        </div>
+                    </div>
+                    <div class="stop-details">
+                        <div class="detail-section">
+                            <h4>歷史</h4>
+                            <ul>
+                                <li>1352年開始建造，1521年完工——歷時170年</li>
+                                <li>1559年安特衛普教區成立時成為主教座堂</li>
+                                <li>歷經聖像破壞運動(1566年)、法國大革命掠奪(1794年)和德國占領(1914年)——每次都失去後又收回珍藏</li>
+                                <li>原計畫建造兩座對稱的塔樓，但因資金問題和建築風格改變，只完成了北塔</li>
+                            </ul>
+                        </div>
+                        <div class="detail-section">
+                            <h4>建築</h4>
+                            <ul>
+                                <li>布拉班特哥德式風格——以精緻的窗花和垂直感為特色</li>
+                                <li>北塔高123公尺——低地國家最高的教堂塔樓</li>
+                                <li>七通道中殿長118公尺，由125根柱子支撐</li>
+                                <li>塔樓的「蕾絲」石雕在如此大的規模下仍保持精緻——注意看那些複雜的尖頂和飛扶壁</li>
+                            </ul>
+                        </div>
+                        <div class="detail-section">
+                            <h4>藝術（內部——之後可再訪）</h4>
+                            <ul>
+                                <li>《豎起十字架》(1610-11) 和《卸下聖體》(1612-14)——魯本斯最戲劇性的兩幅祭壇畫</li>
+                                <li>兩幅畫作展現了魯本斯對角線構圖和戲劇性光線的精湛技藝</li>
+                                <li>《卸下聖體》由火槍手行會委託創作；《豎起十字架》原屬聖瓦爾布加教堂</li>
+                            </ul>
+                        </div>
+                        <div class="highlight-box">
+                            前方的手套市場(Handschoenmarkt)有布拉博噴泉，描繪安特衛普的建城傳說：羅馬士兵西爾維斯·布拉博砍下巨人安提岡的手，扔進斯海爾德河——「hand werpen」（丟手）據說就變成了「Antwerpen」（安特衛普）。
+                        </div>
+                    </div>
+                </div>
+
+                <div class="stop-card" data-stop="2">
+                    <div class="stop-header">
+                        <div class="stop-number">2</div>
+                        <div>
+                            <div class="stop-title">Vlaeykensgang 小巷</div>
+                            <div class="stop-subtitle">16世紀隱密小巷</div>
+                        </div>
+                    </div>
+                    <div class="stop-details">
+                        <div class="detail-section">
+                            <h4>歷史</h4>
+                            <ul>
+                                <li>建於1591年，原為鞋匠及其家人的住所</li>
+                                <li>名稱可能源自「Vlaeykens」這個常見姓氏，或「vlaai」（一種扁平蛋糕）</li>
+                                <li>數百年來一直是工人階級住宅；20世紀差點被拆除，幸好保護運動救了它</li>
+                                <li>現在有小餐廳和畫廊，但保留了真實的中世紀特色</li>
+                            </ul>
+                        </div>
+                        <div class="detail-section">
+                            <h4>建築</h4>
+                            <ul>
+                                <li>狹窄通道有些地方只有1-2公尺寬——典型的中世紀城市規劃，空間非常珍貴</li>
+                                <li>原始鵝卵石，有些可追溯到16世紀</li>
+                                <li>小內院為周圍建築提供採光</li>
+                                <li>爬滿常春藤的牆壁和親密的尺度與外面繁忙的街道形成強烈對比</li>
+                            </ul>
+                        </div>
+                        <div class="highlight-box">
+                            入口在 Oude Koornmarkt 16號——如果不知道要找，很容易錯過。通道連接到 Pelgrimstraat，從教堂附近出來。
+                        </div>
+                    </div>
+                </div>
+
+                <div class="stop-card" data-stop="3">
+                    <div class="stop-header">
+                        <div class="stop-number">3</div>
+                        <div>
+                            <div class="stop-title">大廣場</div>
+                            <div class="stop-subtitle">Grote Markt - 行會建築與市政廳</div>
+                        </div>
+                    </div>
+                    <div class="stop-details">
+                        <div class="detail-section">
+                            <h4>歷史</h4>
+                            <ul>
+                                <li>中世紀以來安特衛普的商業中心——這裡展示城市財富、進行商業活動</li>
+                                <li>行會建築代表各行業公會的經濟實力：木桶匠、布商、弓箭手、弩手</li>
+                                <li>16世紀安特衛普是歐洲最富有的城市，處理40%的世界貿易——這個廣場展示了那份財富</li>
+                                <li>「西班牙狂暴」(1576年)摧毀了城市大部分；許多建築是之後重建的</li>
+                            </ul>
+                        </div>
+                        <div class="detail-section">
+                            <h4>建築</h4>
+                            <ul>
+                                <li><strong>市政廳 (Stadhuis)：</strong>文藝復興傑作(1561-65)，由柯尼利斯·弗洛里斯·德·弗里恩特設計，融合義大利文藝復興與佛蘭德斯裝飾</li>
+                                <li>市政廳中央部分打破水平節奏——注意看徽章和雕像</li>
+                                <li><strong>行會建築：</strong>每棟都以鍍金雕像、精緻山牆和代表行業的象徵圖案競相爭豔</li>
+                                <li>找找木桶匠行會（桶的圖案）、弓箭手行會，以及階梯形與曲線形山牆（代表不同時期）</li>
+                            </ul>
+                        </div>
+                        <div class="detail-section">
+                            <h4>藝術與象徵</h4>
+                            <ul>
+                                <li>布拉博噴泉(1887)，傑夫·蘭博作品——比手套市場的版本更戲劇性，展示布拉博正在投擲的瞬間</li>
+                                <li>行會建築立面就像建築版的「名片」——每個細節都傳達行會的行業、守護聖人和繁榮</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="stop-card" data-stop="4">
+                    <div class="stop-header">
+                        <div class="stop-number">4</div>
+                        <div>
+                            <div class="stop-title">肉鋪行會大樓</div>
+                            <div class="stop-subtitle">Vleeshuis (1504)</div>
+                        </div>
+                    </div>
+                    <div class="stop-details">
+                        <div class="detail-section">
+                            <h4>歷史</h4>
+                            <ul>
+                                <li>建於1501-1504年，是肉商行會大樓——最富有、最有權勢的行會之一</li>
+                                <li>肉商壟斷肉類銷售；只有他們能賣肉，而且只能在這裡賣</li>
+                                <li>建築包括行會會議大廳、禮拜堂和一樓的肉攤</li>
+                                <li>現為肉鋪博物館，展示音樂和舞蹈（今天休館）</li>
+                            </ul>
+                        </div>
+                        <div class="detail-section">
+                            <h4>建築</h4>
+                            <ul>
+                                <li>晚期哥德式，獨特的紅磚和白色砂岩交替層——形成醒目的「培根條紋」效果</li>
+                                <li>層狀圖案既是裝飾性的也是結構性的——砂岩層幫助分散重量</li>
+                                <li>陡峭的階梯形山牆和角落塔樓使它看起來像堡壘</li>
+                                <li>低地國家保存最好的中世紀行會大樓之一</li>
+                            </ul>
+                        </div>
+                        <div class="highlight-box">
+                            「培根條紋」是安特衛普獨有的——你在其他地方看不到這種圖案。建築的堡壘般外觀反映了肉商的財富和保護貴重肉品的需求。
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- LATE MORNING SECTION -->
+            <div class="route-section">
+                <h3>上午稍晚：魯本斯區</h3>
+
+                <div class="stop-card" data-stop="5">
+                    <div class="stop-header">
+                        <div class="stop-number">5</div>
+                        <div>
+                            <div class="stop-title">綠地廣場</div>
+                            <div class="stop-subtitle">Groenplaats - 魯本斯原葬地</div>
+                        </div>
+                    </div>
+                    <div class="stop-details">
+                        <div class="detail-section">
+                            <h4>歷史與魯本斯</h4>
+                            <ul>
+                                <li>原為教堂墓地——「Groenplaats」意為「綠色的地方」，指曾經覆蓋墳墓的草地</li>
+                                <li>魯本斯1640年埋葬於此；1755年遺體移入教堂內的家族禮拜堂（後殿後方）</li>
+                                <li>雕像(1840)由威廉·蓋夫斯創作，展示穿著外交官服裝的魯本斯——他既是畫家也是外交官，曾斡旋西班牙與英格蘭之間的和平</li>
+                                <li>1784年約瑟夫二世皇帝禁止城市墓地後停止埋葬——啟蒙時代公共衛生改革的一部分</li>
+                            </ul>
+                        </div>
+                        <div class="detail-section">
+                            <h4>注意觀察</h4>
+                            <ul>
+                                <li>站在雕像旁看向教堂塔樓——這個視角連接魯本斯與他在教堂內的傑作</li>
+                                <li>雕像底座有代表繪畫、建築和榮耀的寓言人物</li>
+                                <li>廣場的開放布局反映啟蒙時代城市規劃——用理性的公共空間取代中世紀雜亂的墓地</li>
+                            </ul>
+                        </div>
+                        <div class="highlight-box">
+                            魯本斯去世時既富有又備受讚譽，與當時許多藝術家不同。他的墓誌銘稱他為「當代的阿佩萊斯」——比作亞歷山大大帝的宮廷畫家，這是17世紀藝術界最高的讚譽。
+                        </div>
+                    </div>
+                </div>
+
+                <div class="stop-card" data-stop="6">
+                    <div class="stop-header">
+                        <div class="stop-number">6</div>
+                        <div>
+                            <div class="stop-title">魯本斯故居</div>
+                            <div class="stop-subtitle">Rubenshuis (1610-1640)</div>
+                        </div>
+                    </div>
+                    <div class="stop-details">
+                        <div class="detail-section">
+                            <h4>歷史</h4>
+                            <ul>
+                                <li>1610年魯本斯從義大利回來後購買；他在此居住直到1640年去世</li>
+                                <li>魯本斯將現有的佛蘭德斯房屋改造成義大利式宮殿——親自設計翻新</li>
+                                <li>這裡既是住所也是「繪畫工廠」——魯本斯雇用眾多助手，包括安東尼·凡戴克和雅各布·喬丹斯</li>
+                                <li>魯本斯去世後，房屋多次易主並經過大幅改建；1937年市政府收購，花了數十年修復</li>
+                            </ul>
+                        </div>
+                        <div class="detail-section">
+                            <h4>建築</h4>
+                            <ul>
+                                <li><strong>門廊：</strong>連接住宅和工作室的華麗巴洛克大門——少數倖存的原始元素之一。魯本斯根據羅馬凱旋門設計</li>
+                                <li>門廊有三個拱形開口，上方有代表墨丘利和密涅瓦（商業和智慧）的雕塑</li>
+                                <li>後方的花園涼亭受義大利文藝復興別墅啟發</li>
+                                <li>建築展示了從佛蘭德斯傳統建築到義大利巴洛克影響的過渡</li>
+                            </ul>
+                        </div>
+                        <div class="detail-section">
+                            <h4>藝術背景</h4>
+                            <ul>
+                                <li>魯本斯在此創作了估計1,400幅畫作，有工作室助手協助</li>
+                                <li>工作室有大窗戶（朝北以獲得穩定光線）和高天花板以容納大型畫布</li>
+                                <li>魯本斯在此收藏了重要的藝術品，用於研究和作為模型</li>
+                            </ul>
+                        </div>
+                        <div class="highlight-box">
+                            歷史建築正在翻修中，預計2030年完工，但花園和魯本斯體驗區可參觀（1月1日休館）。新入口在 Hopland 13號。
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- AFTERNOON SECTION -->
+            <div class="route-section">
+                <h3>下午：河流與港口遺產</h3>
+
+                <div class="stop-card" data-stop="7">
+                    <div class="stop-header">
+                        <div class="stop-number">7</div>
+                        <div>
+                            <div class="stop-title">聖卡洛斯·波羅梅奧教堂</div>
+                            <div class="stop-subtitle">Sint-Carolus Borromeus - 巴洛克耶穌會教堂 (1621)</div>
+                        </div>
+                    </div>
+                    <div class="stop-details">
+                        <div class="detail-section">
+                            <h4>歷史</h4>
+                            <ul>
+                                <li>1615-1621年由耶穌會建造，作為反宗教改革的一部分——設計目的是震撼和激勵人心</li>
+                                <li>魯本斯密切參與設計，特別是立面和塔樓</li>
+                                <li>原有39幅魯本斯天花板畫——1718年閃電引發火災全部燒毀</li>
+                                <li>以反宗教改革的米蘭大主教卡洛·波羅梅奧命名，他於1610年被封聖</li>
+                            </ul>
+                        </div>
+                        <div class="detail-section">
+                            <h4>建築</h4>
+                            <ul>
+                                <li>立面被認為是低地國家最精美的巴洛克立面之一——戲劇性、動態、令人印象深刻</li>
+                                <li>三層設計，柱子、壁柱和破碎山花戲劇性地交織</li>
+                                <li>塔樓結合巴洛克和哥德元素——展示義大利理念的地方適應</li>
+                                <li>內部使用大理石、鍍金和戲劇性光線創造情感衝擊——建築作為宗教宣傳</li>
+                            </ul>
+                        </div>
+                        <div class="detail-section">
+                            <h4>藝術</h4>
+                            <ul>
+                                <li>聖母禮拜堂保留了兩幅1718年火災中倖存的魯本斯畫作</li>
+                                <li>這座教堂展示了巴洛克藝術和建築如何共同創造沉浸式宗教體驗</li>
+                            </ul>
+                        </div>
+                        <div class="highlight-box">
+                            <strong>1月1日提醒：</strong>教堂僅在彌撒時間開放（上午11:30藝術家彌撒、下午5點堂區彌撒）——不開放觀光。但前方的亨德里克·康西昂斯廣場是安特衛普最上相的地點之一——教堂立面被歷史建築環繞。
+                        </div>
+                    </div>
+                </div>
+
+                <div class="stop-card" data-stop="8">
+                    <div class="stop-header">
+                        <div class="stop-number">8</div>
+                        <div>
+                            <div class="stop-title">斯滕城堡與斯海爾德河岸</div>
+                            <div class="stop-subtitle">Het Steen - 中世紀堡壘與建造安特衛普的河流</div>
+                        </div>
+                    </div>
+                    <div class="stop-details">
+                        <div class="detail-section">
+                            <h4>斯滕城堡——堡壘</h4>
+                            <ul>
+                                <li>安特衛普最古老的建築——部分可追溯到10世紀，1520年代查理五世皇帝統治下重建</li>
+                                <li>原為保護河流渡口的堡壘；後來作為監獄使用（直到1823年）</li>
+                                <li>「Steen」意為「石頭」——指當時大多數建築都是木造時，它是石造的</li>
+                                <li>現存的是一個更大的中世紀城堡群的城門樓</li>
+                                <li>入口上方的浮雕（1520年）展示塞米尼，北歐生育之神——可能是維京時代石頭的再利用</li>
+                            </ul>
+                        </div>
+                        <div class="detail-section">
+                            <h4>斯海爾德河——安特衛普的生命線</h4>
+                            <ul>
+                                <li>斯海爾德河造就了安特衛普——從北海可通航，讓遠洋船隻能抵達城市</li>
+                                <li>16世紀安特衛普是世界上最繁忙的港口，處理40%的世界貿易：香料、紡織品、寶石和藝術品</li>
+                                <li>河流也是安特衛普的弱點——荷蘭封鎖斯海爾德河（1585-1863年）使城市經濟衰落近300年</li>
+                                <li>看看對岸的左岸區——中世紀斯滕城堡與現代河岸的對比展現安特衛普的層疊歷史</li>
+                            </ul>
+                        </div>
+                        <div class="detail-section">
+                            <h4>民間傳說</h4>
+                            <ul>
+                                <li>長韋伯（Lange Wapper）雕像描繪安特衛普民間傳說中的變形巨人，據說會恐嚇離開河邊酒館的醉漢——16世紀的警世故事</li>
+                            </ul>
+                        </div>
+                        <div class="highlight-box">
+                            站在平台上向北看向港口——你看到的是1000多年河流貿易的延續。遠處的現代起重機處理歐洲最大的貨運量之一。
+                        </div>
+                    </div>
+                </div>
+
+                <div class="stop-card" data-stop="9">
+                    <div class="stop-header">
+                        <div class="stop-number">9</div>
+                        <div>
+                            <div class="stop-title">MAS 河畔博物館與小島區</div>
+                            <div class="stop-subtitle">Museum aan de Stroom & Het Eilandje</div>
+                        </div>
+                    </div>
+                    <div class="stop-details">
+                        <div class="detail-section">
+                            <h4>歷史</h4>
+                            <ul>
+                                <li>小島區（Het Eilandje）是安特衛普19世紀的港區——倉庫、碼頭和海事工業</li>
+                                <li>20世紀港口活動北移後衰落；變得荒廢和被遺棄</li>
+                                <li>2000年代以來重新開發為混合用途社區——適應性再利用的典範</li>
+                                <li>MAS於2011年開幕，設計目的是講述安特衛普通過貿易、移民和文化交流與世界連結的故事</li>
+                            </ul>
+                        </div>
+                        <div class="detail-section">
+                            <h4>建築</h4>
+                            <ul>
+                                <li><strong>MAS建築：</strong>由Neutelings Riedijk設計（2011年）——60公尺高，外覆紅色印度砂岩和曲面玻璃</li>
+                                <li>堆疊、旋轉的體量喚起貨櫃或手的意象（安特衛普的象徵）</li>
+                                <li>外牆有3,185隻鑄鋁手——呼應布拉博傳說</li>
+                                <li>外部電扶梯通過玻璃廊道之字形向上，每層都有景觀——林蔭大道和屋頂全景免費開放</li>
+                            </ul>
+                        </div>
+                        <div class="detail-section">
+                            <h4>附近</h4>
+                            <ul>
+                                <li><strong>紅星線博物館：</strong>在1873-1934年間有200萬移民從這裡出發前往美國的舊檢查大樓內，包括許多猶太難民</li>
+                                <li><strong>波拿巴碼頭與威廉碼頭：</strong>舊碼頭盆地，現在周圍是改建的倉庫和現代公寓</li>
+                            </ul>
+                        </div>
+                        <div class="highlight-box">
+                            <strong>1月1日提醒：</strong>MAS新年當天完全關閉——包括屋頂和電扶梯。仍值得在建築外圍走走，欣賞建築和手的圖案。周圍碼頭區和紅星線建築外觀可參觀。
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- LATE AFTERNOON SECTION -->
+            <div class="route-section">
+                <h3>傍晚：南區</h3>
+                <p style="font-size: 0.85rem; color: var(--stone); margin-bottom: 0.75rem; font-style: italic;">
+                    從MAS（第9站）到KMSKA（第10站）約2公里。可搭電車9或15號從Napoleonkaai，或搭計程車。
+                </p>
+
+                <div class="stop-card" data-stop="10">
+                    <div class="stop-header">
+                        <div class="stop-number">10</div>
+                        <div>
+                            <div class="stop-title">KMSKA 皇家美術館（外觀）</div>
+                            <div class="stop-subtitle">Koninklijk Museum voor Schone Kunsten</div>
+                        </div>
+                    </div>
+                    <div class="stop-details">
+                        <div class="detail-section">
+                            <h4>歷史</h4>
+                            <ul>
+                                <li>1810年拿破崙統治下成立；現有建築1890年開放</li>
+                                <li>收藏始於安特衛普聖路加行會（1382-1773年活躍）擁有的藝術品</li>
+                                <li>1840年前市長弗洛倫特·范爾特伯恩捐贈後大幅擴展，他在早期尼德蘭藝術不流行時收藏</li>
+                                <li>2011-2022年因重大翻修關閉；重新開放後展覽空間增加40%</li>
+                            </ul>
+                        </div>
+                        <div class="detail-section">
+                            <h4>建築</h4>
+                            <ul>
+                                <li>新古典主義設計，由讓-雅克·溫德斯和弗蘭斯·范戴克設計（1884-1894年）</li>
+                                <li>立面屋頂線有湯瑪斯·文索特創作的銅製馬車</li>
+                                <li>七個藝術家圓形肖像，包括揚·凡艾克和魯本斯</li>
+                                <li>2022年KAAN建築師事務所的翻新增加了當代藝術的現代展區，同時保留歷史畫廊</li>
+                            </ul>
+                        </div>
+                        <div class="detail-section">
+                            <h4>藝術（內部——之後可再訪）</h4>
+                            <ul>
+                                <li><strong>揚·凡艾克：</strong>《聖芭芭拉》(1437)——展示技法的未完成傑作；《噴泉邊的聖母》</li>
+                                <li><strong>羅希爾·范德維登：</strong>《七聖事祭壇畫》、《菲利普·德克羅伊肖像》</li>
+                                <li><strong>魯本斯：</strong>重要作品包括《三博士來朝》</li>
+                                <li><strong>詹姆斯·恩索爾：</strong>世界上最大的恩索爾作品收藏</li>
+                                <li><strong>當前展覽：</strong>馬格利特回顧展（至2026年2月）、Marthe Donas/Archipenko（至1月11日）</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="stop-card" data-stop="11">
+                    <div class="stop-header">
+                        <div class="stop-number">11</div>
+                        <div>
+                            <div class="stop-title">南區</div>
+                            <div class="stop-subtitle">Het Zuid - 19世紀林蔭大道與畫廊</div>
+                        </div>
+                    </div>
+                    <div class="stop-details">
+                        <div class="detail-section">
+                            <h4>歷史</h4>
+                            <ul>
+                                <li>19世紀末舊西班牙城堡（1567年為控制叛亂後的城市而建）拆除後開發</li>
+                                <li>設計為有寬闊林蔭大道和宏偉聯排別墅的資產階級住宅區</li>
+                                <li>20世紀中葉衰落，1980-90年代被藝術家和畫廊主重新發現</li>
+                                <li>現為安特衛普的畫廊區，比旅遊中心更有波希米亞風情</li>
+                            </ul>
+                        </div>
+                        <div class="detail-section">
+                            <h4>建築</h4>
+                            <ul>
+                                <li>Leopold de Waelplaats和周圍街道展示折衷的19世紀風格——新文藝復興、新哥德、早期新藝術</li>
+                                <li>Gedempte Zuiderdokken（填平的南碼頭）形成長條形公園空間</li>
+                                <li>注意聯排別墅細節：華麗的鐵藝、雕刻的石材立面、獨特的門廊</li>
+                            </ul>
+                        </div>
+                        <div class="highlight-box">
+                            這個區域很適合吃晚餐——比大廣場更本地化、更少觀光客。四處走走看看有什麼吸引你的。
+                        </div>
+                    </div>
+                </div>
+
+                <div class="stop-card" data-stop="12">
+                    <div class="stop-header">
+                        <div class="stop-number">12</div>
+                        <div>
+                            <div class="stop-title">安特衛普中央車站</div>
+                            <div class="stop-subtitle">Antwerp Centraal - 「鐵路大教堂」</div>
+                        </div>
+                    </div>
+                    <div class="stop-details">
+                        <div class="detail-section">
+                            <h4>歷史</h4>
+                            <ul>
+                                <li>1895-1905年建造以取代早期木造車站，展示比利時對其鐵路網絡的驕傲（歐洲大陸第一條鐵路）</li>
+                                <li>由路易·德拉桑塞里設計（車站建築），克萊蒙·范博加特設計鐵製火車大廳</li>
+                                <li>利奧波德二世國王密切參與，希望展現比利時國家威望</li>
+                                <li>因其紀念性、幾乎宗教般的宏偉而常被稱為「鐵路大教堂」</li>
+                            </ul>
+                        </div>
+                        <div class="detail-section">
+                            <h4>建築</h4>
+                            <ul>
+                                <li>折衷主義風格，結合新巴洛克、新文藝復興和布雜藝術影響</li>
+                                <li>主大廳有巨大穹頂（75公尺高），配以精緻石雕、大理石和鍍金裝飾</li>
+                                <li>內部使用超過20種大理石和石材</li>
+                                <li>鐵和玻璃火車大廳（185m × 66m）覆蓋月台而無中間支柱——當時的工程奇蹟</li>
+                                <li>近期翻修（1998-2009年）增加高速鐵路地下層，同時保留歷史結構</li>
+                            </ul>
+                        </div>
+                        <div class="highlight-box">
+                            即使不搭火車，也進去看看主大廳。戲劇性的內部可媲美許多大教堂——對於一個崇拜商業的城市來說很合適。
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="legend">
+                <div class="legend-item"><div class="legend-color morning"></div> 上午：歷史核心區</div>
+                <div class="legend-item"><div class="legend-color late-morning"></div> 上午稍晚：魯本斯區</div>
+                <div class="legend-item"><div class="legend-color afternoon"></div> 下午：河流與港口</div>
+                <div class="legend-item"><div class="legend-color late-afternoon"></div> 傍晚：南區</div>
+            </div>
+        </aside>
+    </div>
+
+    <button class="scroll-to-map" id="scrollToMap">↑ 回到地圖</button>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        // Tour stops data with coordinates
+        const stops = [
+            {
+                id: 1,
+                name: "Cathedral of Our Lady",
+                lat: 51.2204,
+                lng: 4.4010,
+                section: "morning"
+            },
+            {
+                id: 2,
+                name: "Vlaeykensgang",
+                lat: 51.2210,
+                lng: 4.4000,
+                section: "morning"
+            },
+            {
+                id: 3,
+                name: "Grote Markt",
+                lat: 51.2213,
+                lng: 4.3995,
+                section: "morning"
+            },
+            {
+                id: 4,
+                name: "Vleeshuis",
+                lat: 51.2232,
+                lng: 4.3970,
+                section: "morning"
+            },
+            {
+                id: 5,
+                name: "Groenplaats",
+                lat: 51.2192,
+                lng: 4.4010,
+                section: "late-morning"
+            },
+            {
+                id: 6,
+                name: "Rubenshuis",
+                lat: 51.2153,
+                lng: 4.4095,
+                section: "late-morning"
+            },
+            {
+                id: 7,
+                name: "Sint-Carolus Borromeus",
+                lat: 51.2220,
+                lng: 4.4040,
+                section: "afternoon"
+            },
+            {
+                id: 8,
+                name: "Het Steen & Scheldt",
+                lat: 51.2240,
+                lng: 4.3960,
+                section: "afternoon"
+            },
+            {
+                id: 9,
+                name: "MAS & Het Eilandje",
+                lat: 51.2295,
+                lng: 4.4045,
+                section: "afternoon"
+            },
+            {
+                id: 10,
+                name: "KMSKA",
+                lat: 51.2070,
+                lng: 4.3960,
+                section: "late-afternoon"
+            },
+            {
+                id: 11,
+                name: "Het Zuid",
+                lat: 51.2090,
+                lng: 4.4000,
+                section: "late-afternoon"
+            },
+            {
+                id: 12,
+                name: "Antwerp Centraal",
+                lat: 51.2172,
+                lng: 4.4212,
+                section: "late-afternoon"
+            }
+        ];
+
+        // Section colors
+        const sectionColors = {
+            "morning": "#4a7c59",
+            "late-morning": "#7c4a5e",
+            "afternoon": "#4a5e7c",
+            "late-afternoon": "#7c6a4a"
+        };
+
+        // Initialize map
+        const map = L.map('map').setView([51.2190, 4.4050], 14);
+
+        // Add tile layer (using a more muted style)
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+            subdomains: 'abcd',
+            maxZoom: 19
+        }).addTo(map);
+
+        // Store markers for reference
+        const markers = {};
+
+        // Create custom icon
+        function createIcon(number, section, isActive = false) {
+            return L.divIcon({
+                className: 'custom-marker-wrapper',
+                html: `<div class="custom-marker ${isActive ? 'active' : ''}" style="background: ${isActive ? '#b8860b' : '#2c2416'}; color: ${isActive ? '#2c2416' : '#f4f1ea'};">${number}</div>`,
+                iconSize: [28, 28],
+                iconAnchor: [14, 14]
+            });
+        }
+
+        // Add markers to map
+        stops.forEach(stop => {
+            const marker = L.marker([stop.lat, stop.lng], {
+                icon: createIcon(stop.id, stop.section)
+            }).addTo(map);
+
+            marker.bindPopup(`
+                <div class="popup-title">${stop.id}. ${stop.name}</div>
+                <div class="popup-section">點擊側邊欄的卡片查看詳情</div>
+            `);
+
+            marker.on('click', () => {
+                activateStop(stop.id);
+            });
+
+            markers[stop.id] = marker;
+        });
+
+        // Draw route lines
+        const routeCoordinates = stops.map(s => [s.lat, s.lng]);
+        
+        // Main route line
+        L.polyline(routeCoordinates, {
+            color: '#b8860b',
+            weight: 3,
+            opacity: 0.6,
+            dashArray: '10, 10'
+        }).addTo(map);
+
+        // Active stop tracking
+        let activeStopId = null;
+
+        function activateStop(stopId) {
+            // Deactivate previous
+            if (activeStopId) {
+                const prevCard = document.querySelector(`.stop-card[data-stop="${activeStopId}"]`);
+                if (prevCard) prevCard.classList.remove('active');
+                
+                const prevStop = stops.find(s => s.id === activeStopId);
+                if (prevStop && markers[activeStopId]) {
+                    markers[activeStopId].setIcon(createIcon(activeStopId, prevStop.section, false));
+                }
+            }
+
+            // Activate new
+            activeStopId = stopId;
+            const card = document.querySelector(`.stop-card[data-stop="${stopId}"]`);
+            if (card) {
+                card.classList.add('active');
+                card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
+
+            const stop = stops.find(s => s.id === stopId);
+            if (stop && markers[stopId]) {
+                markers[stopId].setIcon(createIcon(stopId, stop.section, true));
+                map.panTo([stop.lat, stop.lng], { animate: true });
+            }
+        }
+
+        // Add click handlers to cards
+        document.querySelectorAll('.stop-card').forEach(card => {
+            card.addEventListener('click', () => {
+                const stopId = parseInt(card.dataset.stop);
+                activateStop(stopId);
+            });
+        });
+
+        // Activate first stop by default
+        activateStop(1);
+
+        // Mobile: Scroll to map button
+        const scrollToMapBtn = document.getElementById('scrollToMap');
+
+        function checkScrollPosition() {
+            const mapElement = document.getElementById('map');
+            const rect = mapElement.getBoundingClientRect();
+
+            // If map is mostly visible, hide the button
+            if (rect.bottom > 100) {
+                scrollToMapBtn.classList.add('at-top');
+            } else {
+                scrollToMapBtn.classList.remove('at-top');
+            }
+        }
+
+        scrollToMapBtn.addEventListener('click', () => {
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        });
+
+        window.addEventListener('scroll', checkScrollPosition);
+        checkScrollPosition(); // Initial check
+    </script>
+</body>
+</html>
